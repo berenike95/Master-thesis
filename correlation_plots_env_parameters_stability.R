@@ -1,6 +1,6 @@
 #-------------------------------------------------------------------------------------------#
 
-## Stability ~ environmental parameters correlation matrix ####
+## Stability ~ environmental parameters correlation plots ####
 
 #-------------------------------------------------------------------------------------------#
 

@@ -9,11 +9,12 @@
 # TN 
 # light (PAR I)
 # DOC 
-# Chl a (fluorometer)
 # temperature 
 
 # load packages
 library(tidyverse)
+library(scales)
+library(gridExtra)
 
 #-------------------------------------------------------------------------------------------#
 
@@ -27,11 +28,30 @@ stability1 <- read.csv("/Users/berenikebick/Documents/Uni Master/SoSe20/Masterar
 # load environmental parameters:
 env_parameters1 <- read.csv("/Users/berenikebick/Documents/Uni Master/SoSe20/Masterarbeit/Experiment_Data/Pablos Data/Chemistry_Fish_SITES_AquaNet_2017 Kopie.csv", sep=";")
 
-
-head(env_parameters)
 #-------------------------------------------------------------------------------------------#
 
-## 2. filtering datasets ####
+## 2. deleting values in env_parameters ####
+
+#-------------------------------------------------------------------------------------------#
+
+
+# a) Deleting all Sampling_day = 21
+
+
+env_parameters1 <- env_parameters1[!(env_parameters1$Sampling_day ==21),]
+
+#-------------------------------------------------------------------------------------------#
+
+# b) deleting all rows with Enclosures = 1, 7, 10, 16, 21 
+
+
+env_parameters1 <- env_parameters1[ ! (env_parameters1$Enclosure %in% c(1, 7, 10, 16,21)), ]
+
+
+#-------------------------------------------------------------------------------------------#
+
+
+## 3. filtering datasets ####
 
 #-------------------------------------------------------------------------------------------#
 
@@ -45,7 +65,7 @@ stability <- select(stability1, Lake, Experiment, Enclosure, Treatment, Replicat
 
 #-------------------------------------------------------------------------------------------#
 
-## 3. changing names for column "Experiment" ####
+## 4. changing names for column "Experiment" ####
 
 #-------------------------------------------------------------------------------------------#
 
@@ -62,7 +82,7 @@ stability$Experiment <- as.integer(stability$Experiment)
 
 #-------------------------------------------------------------------------------------------#
 
-## 4. changing names in column "Lakes" ####
+## 5. changing names in column "Lakes" ####
 
 #-------------------------------------------------------------------------------------------#
 
@@ -104,35 +124,124 @@ env_parameters$Lake <- as.factor(env_parameters$Lake)
 levels(env_parameters$Lake)
 # "Bolmen"     "Erken"      "Erssjoen"   "Feresjoen"  "Stortjaern"
 
-#-------------------------------------------------------------------------------------------#
 
-## 5. deleting rows in env_parameters with Enclosures = 16 & Enclosures = 21 ####
-
-#-------------------------------------------------------------------------------------------#
-
-env_parameters <- env_parameters[ ! env_parameters$Enclosure %in% c(16,21), ]
-
-nrow(stability[stability$Lake == "Bolmen",])
-# 144
-nrow(env_parameters[env_parameters$Lake == "Bolmen",])
-# 180 
-
-nrow(stability[stability$Lake == "Erken",])
-# 144
-nrow(env_parameters[env_parameters$Lake == "Bolmen",])
-# 180
 
 #-------------------------------------------------------------------------------------------#
 
-## 6. getting mean values ####
+## 6. merging both datasets ####
 
 #-------------------------------------------------------------------------------------------#
 
-stability$Replicate <- as.factor(stability$Replicate)
+# > scored_policies<-merge(x=policies,y=limits,by="State",all.x=TRUE)
 
-levels(stability$Replicate)
+env_stability <- merge(x=stability, y=env_parameters, by =c("Lake", "Experiment", 
+                                  "Enclosure", "Treatment", "Replicate"), all.x=TRUE)
+
+#-------------------------------------------------------------------------------------------#
+
+## 7. plotting environmental parameters against stability measures for all lakes ####
+
+#-------------------------------------------------------------------------------------------#
+
+function_env_stability <- env_stability[which(env_stability$variable==c('bact_function', 
+                                  'phyto_function', 'zoop_function')), ]
+
+# TP 
 
 
+plot_TP <- ggplot(data=function_env_stability, aes(x=total_impact, 
+                                      y=TP, color = variable, shape = Lake)) +
+ labs(color = "Plankton variable") +
+  geom_point() +
+ geom_smooth(aes(group=variable)) +
+  ylab("Total phosphorus") +
+  scale_x_continuous(trans = log2_trans(),
+                    breaks = trans_breaks("log2", function(x) 2^x),
+                   labels = trans_format("log2", math_format(2^.x))) +
+  theme_minimal(base_size = 15) +
+ theme(legend.position = "none") +
+  ggtitle("Total phosphorus (all lakes)")+
+  theme(legend.title = element_blank()) +
+  guides(shape=FALSE) +
+  theme(legend.position = "top",plot.title = element_text(hjust=0.5, face="bold")) +
+  scale_color_brewer(palette="Dark2")
 
-levels(env_parameters$Replicate)
+
+# TN
+
+function_env_stability$TN <- as.numeric(function_env_stability$TN)
+
+plot_TN <- ggplot(data=function_env_stability, aes(x=total_impact, y=TN, color = variable, shape = Lake)) +
+  labs(color = "Plankton variable") +
+  geom_point() +
+  geom_smooth(aes(group=variable)) +
+  ylab("Total nitrogen") +
+  scale_x_continuous(trans = log2_trans(),
+                     breaks = trans_breaks("log2", function(x) 2^x),
+                     labels = trans_format("log2", math_format(2^.x))) +
+  theme_minimal(base_size = 15) +
+  ggtitle("Total nitrogen (all lakes)")+
+  theme(legend.title = element_blank()) +
+  guides(color=FALSE) +
+  theme(legend.position = "top",plot.title = element_text(hjust=0.5, face="bold")) +
+  scale_color_brewer(palette="Dark2")
+
+# combining TP & TN plots
+grid.arrange(plot_TP, plot_TN,  ncol=2)
+
+# DOC 
+
+plot_DOC <- ggplot(data=function_env_stability, aes(x=total_impact, 
+                                                   y=DOC, color = variable, shape = Lake)) +
+  labs(color = "Plankton variable") +
+  geom_point() +
+  geom_smooth(aes(group = variable)) +
+  ylab("DOC") +
+ scale_x_continuous(trans = log2_trans(),
+                     breaks = trans_breaks("log2", function(x) 2^x),
+                     labels = trans_format("log2", math_format(2^.x))) +
+  theme_minimal(base_size = 15) +
+  theme(legend.title = element_blank()) +
+  ggtitle("DOC (all lakes)")+
+  theme(legend.position = "top", plot.title = element_text(hjust=0.5, face="bold")) +
+  guides(shape=FALSE) +
+  scale_color_brewer(palette="Dark2")
+
+# Temperature
+
+plot_Temp <- ggplot(data=function_env_stability, aes(x=total_impact, 
+                                                    y=Temperature, color = variable, shape = Lake)) +
+  labs(color = "Plankton variable") +
+  geom_point() +
+  geom_smooth(aes(group = variable)) +
+  ylab("Temperature") +
+ scale_x_continuous(trans = log2_trans(),
+                     breaks = trans_breaks("log2", function(x) 2^x),
+                     labels = trans_format("log2", math_format(2^.x))) +
+  theme_minimal(base_size = 15) +
+  ggtitle("Temperature (all lakes)")+
+  theme(legend.title = element_blank()) +
+  theme(legend.position = "top", plot.title = element_text(hjust=0.5, face="bold")) +
+  guides(color=FALSE) +
+  scale_color_brewer(palette="Dark2")
+
+grid.arrange(plot_DOC, plot_Temp, ncol = 2)
+
+# PAR_I
+
+ggplot(data=function_env_stability, aes(x=total_impact, 
+                                                     y=PAR_I, color = variable, shape = Lake)) +
+  labs(color = "Plankton variable") +
+  geom_point() +
+  geom_smooth(aes(group = variable)) +
+  ylab("PAR") +
+  scale_x_continuous(trans = log2_trans(),
+                     breaks = trans_breaks("log2", function(x) 2^x),
+                     labels = trans_format("log2", math_format(2^.x))) +
+  theme_minimal(base_size = 15) +
+  ggtitle("PAR (all lakes)")+
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  scale_color_brewer(palette="Dark2")
+
+#-------------------------------------------------------------------------------------------#
 
